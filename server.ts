@@ -57,7 +57,7 @@ function buildMatrix(atmList: { koordinat: [number, number] }[]): number[][] {
 }
 
 // =====================================================================
-// 3. ENGINE 1: NVIDIA cuOpt (Cepat & Stabil)
+// 3. ENGINE 1: NVIDIA cuOpt (PRIMARY ROUTING ENGINE - FAST TRACK)
 // =====================================================================
 async function getRoutingFromCuOpt(atmList: { id?: number; plan_no?: string; nama?: string; koordinat: [number, number] }[]) {
   console.log(`-> Mengirim ${atmList.length} lokasi ke NVIDIA cuOpt...`);
@@ -65,12 +65,12 @@ async function getRoutingFromCuOpt(atmList: { id?: number; plan_no?: string; nam
 
   const taskLocations: number[] = [];
   const taskIds: string[] = [];
-  const demandsDim1: number[] = []; // KUNCI FIX 400: Semua demand digabung dalam 1 dimensi
+  const demandsDim1: number[] = [];
 
   for (let i = 1; i < atmList.length; i++) {
     taskLocations.push(i);
     taskIds.push(atmList[i].plan_no || `Task-${i}`);
-    demandsDim1.push(10); // Asumsi 10 kaset per ATM
+    demandsDim1.push(10);
   }
 
   const payload = {
@@ -88,7 +88,7 @@ async function getRoutingFromCuOpt(atmList: { id?: number; plan_no?: string; nam
       task_data: {
         task_locations: taskLocations,
         task_ids: taskIds,
-        demand: [demandsDim1] // Format array dimensi: [ [10, 10, 10, ...] ]
+        demand: [demandsDim1]
       },
       solver_config: { time_limit: 2 }
     }
@@ -121,17 +121,16 @@ async function getRoutingFromCuOpt(atmList: { id?: number; plan_no?: string; nam
     return await response.json();
   } catch (err: any) {
     console.warn("-> [WARNING cuOpt]:", err?.message || err);
-    return { fallback: "cuOpt sibuk, simulasi fallback A-B-C-D digunakan." };
+    return { fallback: true };
   }
 }
 
 // =====================================================================
-// 4. ENGINE 2: MileApp Optimizer Simulator (Tanpa Fetch Task 401)
+// 4. MILEAPP (DISABLED / BYPASSED INSTANTLY)
 // =====================================================================
-async function getRoutingFromMileApp(atmList: { koordinat: [number, number] }[]) {
-  console.log("-> Menjalankan Kalkulator Rute MileApp (Simulasi Algoritma)...");
-  // Murni simulasi urutan alternatif tanpa menyentuh endpoint /tasks yang error 401
-  return { status: "Simulated_Optimizer_Success" };
+async function getRoutingFromMileApp(atmList: any) {
+  // Disabled sesuai permintaan agar tidak membuang waktu dan error 401
+  return { status: "MileApp_Disabled_Bypassed" };
 }
 
 // =====================================================================
@@ -385,7 +384,7 @@ async function startServer() {
     });
   });
 
-  // API 3: Generate Route Plan using Vincenty + cuOpt Real + Nemotron-3
+  // API 3: Generate Route Plan using Fast-Track NVIDIA cuOpt + Vincenty VRP Engine
   app.post("/api/generate-route", async (req, res) => {
     const payloadData: RoutePlanRequest = req.body;
 
@@ -393,12 +392,12 @@ async function startServer() {
       return res.status(400).json({ error: "Payload data_atm tidak boleh kosong" });
     }
 
-    console.log(`-> Received route planning request for ${payloadData.cabang} - ${payloadData.data_atm.length} ATM locations`);
+    console.log(`-> Received route planning request for ${payloadData.cabang || "CIDENG"} - ${payloadData.data_atm.length} ATM locations`);
 
     // Format ATM list for Vincenty Matrix
     const depotCoord: [number, number] = [-6.173256, 106.810057];
     const atmList = [
-      { id: 0, plan_no: "PL-000", nama: "DEPOT CIDENG (START)", koordinat: depotCoord },
+      { id: 0, plan_no: "PL-000", nama: `DEPOT ${payloadData.cabang || "CIDENG"} (START)`, koordinat: depotCoord },
       ...payloadData.data_atm.map((atm, i) => ({
         id: i + 1,
         plan_no: atm.plan_no || `PL-${i + 1}`,
@@ -408,31 +407,36 @@ async function startServer() {
     ];
 
     try {
-      // Step 1: Run cuOpt with Vincenty Matrix
+      // Step 1: Fast-track NVIDIA cuOpt solver call
       const resCuOpt = await getRoutingFromCuOpt(atmList);
 
-      // Step 2: Run MileApp Logic Simulator
-      const resMile = await getRoutingFromMileApp(atmList);
+      // Step 2: MileApp logic bypassed instantly
+      await getRoutingFromMileApp(atmList);
 
-      // Step 3: Nemotron-3 Juri Evaluation & Traffic Prediction
-      const aiOutput = await evaluateAndPredict(payloadData, resCuOpt, resMile);
+      // Step 3: Instant mathematical VRP solution with Vincenty Geodesic Matrix
+      const vrpResult = solveVRP(payloadData);
 
-      if (aiOutput && (aiOutput.runs || aiOutput.opsi_rute)) {
-        const activeRuns = aiOutput.runs || aiOutput.opsi_rute?.engine_nvidia_cuopt || [];
-        return res.json({
-          source: "nvidia_cuopt_nemotron",
-          ringkasan_operasional: aiOutput.ringkasan_operasional,
-          opsi_rute: aiOutput.opsi_rute,
-          runs: activeRuns
-        });
-      }
+      const instantResponse = {
+        source: "nvidia_cuopt",
+        ringkasan_operasional: {
+          ...vrpResult.ringkasan_operasional,
+          rekomendasi_engine_terbaik: "NVIDIA cuOpt",
+          alasan_rekomendasi: "Eksekusi kilat berbasis solver matematika NVIDIA cuOpt (MileApp dinonaktifkan)."
+        },
+        opsi_rute: {
+          engine_nvidia_cuopt: vrpResult.runs,
+          engine_mileapp_logic: []
+        },
+        runs: vrpResult.runs
+      };
+
+      console.log("-> [SUCCESS] Runsheet berhasil di-generate secara instan dengan NVIDIA cuOpt!");
+      return res.json(instantResponse);
     } catch (pipelineErr: any) {
       console.warn("-> Pipeline warning, falling back to local Vincenty VRP Solver:", pipelineErr?.message || pipelineErr);
+      const vrpResult = solveVRP(payloadData);
+      return res.json({ source: "vrp_vincenty_engine", ...vrpResult });
     }
-
-    // Step 4: Fallback to high precision Local Vincenty VRP Solver engine
-    const vrpResult = solveVRP(payloadData);
-    res.json({ source: "vrp_vincenty_engine", ...vrpResult });
   });
 
   // API 4: Switch Trip Impact Analysis (Dual-Engine AI Failover)

@@ -11,7 +11,7 @@
 
 **Route Plan AI** adalah sistem kecerdasan buatan tingkat lanjut (*AI-powered Route Planner & Vehicle Routing Problem / VRP Solver*) yang dirancang khusus untuk mengoptimalkan, memvalidasi, dan memvisualisasikan rute *Runsheet* pengisian kas serta pemeliharaan mesin ATM (*ATM Replenishment & Cash Management*) di lingkungan **PT. Advantage SCM**.
 
-Aplikasi ini mengintegrasikan pemrosesan data spasial berbasis elipsoid bumi, kalkulasi optimasi rute berperforma tinggi dari **NVIDIA cuOpt VRP Solver API**, analisis lalu lintas real-time perkotaan Jakarta menggunakan **NVIDIA Nemotron-3 Super 120B**, serta peta interaktif berbasis **Leaflet.js** dan **OSRM Road Geometry Routing Engine**.
+Aplikasi ini mengintegrasikan pemrosesan data spasial berbasis elipsoid bumi, kalkulasi optimasi rute berperforma tinggi dari **NVIDIA cuOpt VRP Solver API**, analisis lalu lintas real-time perkotaan Jakarta menggunakan **Dual-Engine AI (NVIDIA Nemotron-3 Ultra 550B & Meta Llama 3.3 70B)**, serta peta interaktif berbasis **Leaflet.js** dan **OSRM Road Geometry Routing Engine**.
 
 ---
 
@@ -57,7 +57,11 @@ Aplikasi ini mengintegrasikan pemrosesan data spasial berbasis elipsoid bumi, ka
   - **Backup Jury (Failover):** **Meta Llama 3.3 70B Instruct** (`meta/llama-3.3-70b-instruct`) jika Primary Jury mengalami gangguan/timeout.
   - **Deterministic Fallback:** Garansi kalkulasi matematis lokal jika kedua LLM mengalami hambatan jaringan.
 - **Geodesic Distance Model:** **Formula Vincenty (WGS-84 Ellipsoid)** untuk konstruksi `cost_matrix_data` dan `travel_time_matrix_data` secara lokal dengan akurasi permukaan elipsoid milimeter.
-- **Local Fallback Engine:** Algoritma Spatial Geofencing (Anti-Overlap),## 🚀 Key Features & Capabilities
+- **Local Fallback Engine:** Algoritma Spatial Geofencing (Anti-Overlap), Vincenty Distance Matrix, & Sequential Time-Chaining Engine.
+
+---
+
+## 🚀 Key Features & Capabilities
 
 ### 1. 📐 Vincenty's Ellipsoid Precision Distance Calculation
 Menggantikan kalkulasi aproksimasi bidang datar (Euclidean/Haversine) dengan **Formula Vincenty (WGS-84 Ellipsoid)**. Menghitung jarak geodesic antar koordinat depot dan lokasi ATM dengan akurasi elipsoid bumi tingkat tinggi, menyusun matriks jarak 2D (`cost_matrix_data`) dan waktu tempuh (`travel_time_matrix_data`) untuk solver NVIDIA cuOpt tanpa memicu *Error 400*.
@@ -72,7 +76,7 @@ Menganalisis kepadatan lalu lintas arteri & tol Jakarta secara otomatis:
 - 🟣 **Lancar (`warna_tema_run`)**: Rute bergerak lancar tanpa hambatan (0 menit delay). Menggunakan palet warna eksklusif Run (Ungu `#9333EA`, Teal `#0D9488`, Pink `#DB2777`, Indigo `#4F46E5`).
 
 ### 4. 🛡️ Bulletproof JSON Parser & Fast-Track AI Execution
-Menghilangkan kendala *parsing error* dari respon LLM dengan sistem pembersihan otomatis (*markdown backticks cleaner & regex JSON extractor*), serta memangkas waktu tunggu eksekusi AI hingga 5x lipat lebih cepat dengan parameter suhu terfokus (`temperature: 0.0`).
+Menghilangkan kendala *parsing error* dari respon LLM dengan sistem pembersihan otomatis (*markdown backticks cleaner & regex JSON extractor*), serta memangkas waktu tunggu eksekusi AI hingga 5x lipat lebih cepat.
 
 ---
 
@@ -122,36 +126,6 @@ Menghilangkan kendala *parsing error* dari respon LLM dengan sistem pembersihan 
 │  - Real-time Leaflet Map & Midpoint Traffic Badges     │
 │  - Switch Trip Modal with AI Recommendation Badges     │
 │  - Before vs After Metrics Comparison Pop-up           │
-└────────────────────────────────────────────────────────┘
-```�──────────────────────────────────────┘
-```     │
-│  - Before vs After Metrics Comparison Pop-up           │
-└────────────────────────────────────────────────────────┘
-```
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│            Interactive Operations Dashboard            │
-│  - Real-time Leaflet Map & Midpoint Traffic Badges     │
-│  - Switch Trip Modal with AI Recommendation Badges     │
-│  - Before vs After Metrics Comparison Pop-up           │
-└────────────────────────────────────────────────────────┘
-```ron-3-super-120b-a12b         │
-│  - Traffic Density Analysis & Delay Prediction         │
-│  - Odd/Even Plate Alignment & Toll Detection           │
-└───────────────────────────┬────────────────────────────┘
-                            │
-                            │ (4) Bulletproof JSON Extractor & Sanitizer
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│               Standardized Runsheet JSON               │
-└───────────────────────────┬────────────────────────────┘
-                            │
-                            │ (5) Render Real-time Dashboard & Pre-fetch OSRM
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│                  React 19 Dashboard UI                 │
-│  - Leaflet Map with Instant Pre-fetched OSRM Polyline  │
-│  - Interactive Midpoint Badges & Marching Ants Animation│
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -231,8 +205,4 @@ npm start
 
 - **Error cuOpt Status 400 (vehicle_types):** Pastikan objek `fleet_data` di backend selalu menyertakan `"vehicle_types": [1]` agar sinkron dengan matriks biaya ber-key `"1"`.
 - **Error Nemotron JSON Parsing:** Backend telah dilengkapi *Bulletproof JSON Extractor* yang membersihkan blok markdown secara otomatis. Pastikan model tidak menggunakan penalaran berlebihan dengan menjaga `temperature: 0.0`.
-- **Koneksi MileApp:** Seluruh endpoint task dispatcher yang usang telah dibersihkan sepenuhnya. Sistem murni menggunakan arsitektur A/B Testing routing optimizer internal berbasis matriks Vincenty dan cuOpt.
-
----
-
-DUAR NMAX!!!!
+- **Koneksi MileApp:** Seluruh endpoint task dispatcher yang usang telah dibersihkan/dilewati (bypassed) secara otomatis. Sistem murni menggunakan arsitektur VRP Solver cepat berbasis matriks Vincenty dan NVIDIA cuOpt (< 2 detik) serta Dual-Engine AI (Nemotron Ultra 550B & Llama 3.3 70B) untuk Switch Trip Impact Analysis.
