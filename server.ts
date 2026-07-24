@@ -4,7 +4,7 @@ import { createServer as createViteServer } from "vite";
 import fetch from "node-fetch";
 import OpenAI from "openai";
 import { RoutePlanRequest, RunsheetResponse } from "./src/types";
-import { DUMMY_CLIENT_ATMS } from "./src/data/initialData";
+import { DUMMY_CLIENT_ATMS, MASTER_CABANG_DATA } from "./src/data/initialData";
 import { solveVRP } from "./src/utils/vrpSolver";
 import { vincentyDistance, parseCoordString } from "./src/utils/vincenty";
 
@@ -426,14 +426,15 @@ async function startServer() {
       useTol: preferensi.includes("Hindari Jalan Tol"),
       useOddEven: preferensi.includes("Ganjil/Genap")
     };
-    const cabangNama = payloadData.cabang || "CIDENG";
+    const cabangKey = payloadData.cabang || "JAKARTA";
+    const selectedCabang = MASTER_CABANG_DATA[cabangKey] || MASTER_CABANG_DATA[cabangKey.toUpperCase()] || MASTER_CABANG_DATA["JAKARTA"];
+    const depotCoord: [number, number] = selectedCabang.koordinatPusat;
 
-    console.log(`-> Received request for ${cabangNama} [Tol: ${options.useTol}, GanjilGenap: ${options.useOddEven}] - ${payloadData.data_atm.length} ATM locations`);
+    console.log(`-> Received request for Cabang [${selectedCabang.namaCabang}] with Depot Coordinates: [${depotCoord.join(', ')}] [Tol: ${options.useTol}, GanjilGenap: ${options.useOddEven}] - ${payloadData.data_atm.length} ATM locations`);
 
-    // Format ATM list for Vincenty Matrix
-    const depotCoord: [number, number] = [-6.173256, 106.810057];
+    // Format ATM list for Vincenty Matrix & cuOpt (Index 0 is Depot)
     const atmList = [
-      { id: 0, plan_no: "PL-000", nama: `DEPOT ${cabangNama} (START)`, koordinat: depotCoord },
+      { id: 0, plan_no: "PL-000", nama: `DEPOT ${selectedCabang.namaCabang} (START)`, koordinat: depotCoord },
       ...payloadData.data_atm.map((atm, i) => ({
         id: i + 1,
         plan_no: atm.plan_no || `PL-${i + 1}`,
@@ -455,10 +456,10 @@ async function startServer() {
       const hasSpecialConstraint = options.useTol || options.useOddEven;
       const recommendationEngine = hasSpecialConstraint
         ? "NVIDIA cuOpt + Conditional MileApp Enrichment"
-        : "NVIDIA cuOpt";
+        : "NVIDIA cuOpt + Multi-Branch Dynamic Depot";
       const recommendationReason = hasSpecialConstraint
-        ? "Rute dioptimalkan cuOpt dengan pengayaan aturan Tol & Ganjil/Genap dari MileApp."
-        : "Rute dioptimalkan murni secara kilat menggunakan NVIDIA cuOpt & Master Data.";
+        ? `Rute dimulai dari titik pusat operasional ${selectedCabang.namaCabang} dan dioptimalkan cuOpt dengan pengayaan aturan Tol & Ganjil/Genap dari MileApp.`
+        : `Rute dimulai dari titik pusat operasional ${selectedCabang.namaCabang} dan dioptimalkan murni secara kilat menggunakan NVIDIA cuOpt & Master Data.`;
 
       const instantResponse = {
         source: "nvidia_cuopt",

@@ -1,5 +1,5 @@
 import { ClientATM, RoutePlanRequest, RunsheetResponse, Run, VisitStop, PetugasDetail } from '../types';
-import { FLEET_VEHICLES, STAFF_OFFICERS } from '../data/initialData';
+import { FLEET_VEHICLES, STAFF_OFFICERS, MASTER_CABANG_DATA } from '../data/initialData';
 import { vincentyDistance } from './vincenty';
 
 // Helper to parse lat/lng from string "lat, lng" or array [lat, lng]
@@ -123,8 +123,10 @@ export function solveVRP(request: RoutePlanRequest): RunsheetResponse {
   const MAX_CASSETTES_PER_RUN = 1200;
   const MAX_STOPS_PER_RUN = 7;
 
-  // Depot location: PT Advantage Cideng (-6.173256, 106.810058)
-  const depotCoords = { lat: -6.173256, lng: 106.810058 };
+  // Depot location from selected branch master data
+  const cabangKey = request.cabang || "JAKARTA";
+  const selectedCabang = MASTER_CABANG_DATA[cabangKey] || MASTER_CABANG_DATA[cabangKey.toUpperCase()] || MASTER_CABANG_DATA["JAKARTA"];
+  const depotCoords = { lat: selectedCabang.koordinatPusat[0], lng: selectedCabang.koordinatPusat[1] };
 
   // Spatial Clustering: Sort by distance to Depot (Vincenty Ellipsoid Precision)
   atms.sort((a, b) => {
@@ -296,7 +298,7 @@ export function solveVRP(request: RoutePlanRequest): RunsheetResponse {
         is_lewat_tol: atm.is_lewat_tol ?? isTollRoute,
         prediksi_delay_menit: delayMinutes,
         keterangan_ai: keteranganAi,
-        info_rute_tambahan: stopIdx === 0 ? "Berangkat dari Depot Cideng." : isTollRoute ? "Menggunakan Jalan Tol Dalam Kota." : isOddEvenZone ? "Melewati kawasan Ganjil-Genap Jakarta." : "Melalui jalan arteri umum."
+        info_rute_tambahan: stopIdx === 0 ? `Berangkat dari Depot ${selectedCabang.namaCabang}.` : isTollRoute ? "Menggunakan Jalan Tol Dalam Kota." : isOddEvenZone ? "Melewati kawasan Ganjil-Genap." : "Melalui jalan arteri umum."
       });
 
       prevCoords = currCoords;
