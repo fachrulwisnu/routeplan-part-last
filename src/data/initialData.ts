@@ -134,7 +134,8 @@ export function getAtmsForCabang(cabangKey: string): ClientATM[] {
     wsid: atm.id,
     nama_client: `${atm.bank} - ${atm.nama}`,
     alamat: atm.alamat,
-    koordinat: [atm.koordinat[0], atm.koordinat[1]], // Format array untuk solver & Leaflet
+    // Dikembalikan ke format string "lat, lng" agar aman bagi komponen yang membaca string koordinat
+    koordinat: `${atm.koordinat[0]}, ${atm.koordinat[1]}`, 
     jam_operasional: "08:00 - 22:00",
     kebutuhan_kaset: 24,
     status_atm: "RS",
@@ -142,8 +143,8 @@ export function getAtmsForCabang(cabangKey: string): ClientATM[] {
     is_no_bag: 0,
     cabang: cabangKey,
     siklus: "Pagi",
-    is_lewat_tol: atm.is_lewat_tol,         // Atribut Tol diteruskan ke tipe ClientATM
-    is_zona_ganjil_genap: atm.is_zona_ganjil_genap // Atribut Ganjil-Genap diteruskan
+    is_lewat_tol: atm.is_lewat_tol,
+    is_zona_ganjil_genap: atm.is_zona_ganjil_genap
   }));
 }
 
