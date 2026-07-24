@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Route Plan AI",
+  "description": "AI-Powered Route Planner \u0026 VRP Solver for Cash Management \u0026 ATM Replenishment Operations (PT. Advantage SCM)",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
