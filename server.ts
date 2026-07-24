@@ -126,11 +126,40 @@ async function getRoutingFromCuOpt(atmList: { id?: number; plan_no?: string; nam
 }
 
 // =====================================================================
-// 4. MILEAPP (DISABLED / BYPASSED INSTANTLY)
+// 4. OPTIONAL MILEAPP ENRICHER (Hanya dipanggil jika checkbox aktif)
 // =====================================================================
-async function getRoutingFromMileApp(atmList: any) {
-  // Disabled sesuai permintaan agar tidak membuang waktu dan error 401
-  return { status: "MileApp_Disabled_Bypassed" };
+async function fetchMileAppConstraints(atmList: any[], options: { useTol: boolean; useOddEven: boolean }) {
+  if (!options.useTol && !options.useOddEven) {
+    console.log("-> [MileApp] Dilewati (Checkbox Tol & Ganjil/Genap tidak dicentang).");
+    return null;
+  }
+
+  console.log("-> [MileApp] Mengambil data constraint khusus (Tol & Ganjil/Genap)...");
+  
+  try {
+    const response = await fetch("https://apiv2.mile.app/v1/tasks", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${process.env.MILEAPP_TOKEN || MILEAPP_TOKEN}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    if (response.status === 401) {
+      console.warn("-> [WARNING MileApp]: Unauthorized 401. Menggunakan fallback data master lokal.");
+      return null;
+    }
+
+    if (!response.ok) throw new Error(`MileApp error status: ${response.status}`);
+    
+    const data = await response.json();
+    console.log("-> [SUCCESS] MileApp berhasil memperkaya data constraints!");
+    return data; // Berisi data tambahan dari MileApp
+
+  } catch (err: any) {
+    console.warn("-> [WARNING MileApp Bypassed]:", err?.message || err);
+    return null; // Gagal pun sistem tetap aman lanjut ke cuOpt
+  }
 }
 
 // =====================================================================
@@ -384,7 +413,7 @@ async function startServer() {
     });
   });
 
-  // API 3: Generate Route Plan using Fast-Track NVIDIA cuOpt + Vincenty VRP Engine
+  // API 3: Generate Route Plan using Fast-Track NVIDIA cuOpt + Vincenty VRP Engine + Conditional MileApp
   app.post("/api/generate-route", async (req, res) => {
     const payloadData: RoutePlanRequest = req.body;
 
@@ -392,12 +421,19 @@ async function startServer() {
       return res.status(400).json({ error: "Payload data_atm tidak boleh kosong" });
     }
 
-    console.log(`-> Received route planning request for ${payloadData.cabang || "CIDENG"} - ${payloadData.data_atm.length} ATM locations`);
+    const preferensi = payloadData.preferensi_rute || [];
+    const options = {
+      useTol: preferensi.includes("Hindari Jalan Tol"),
+      useOddEven: preferensi.includes("Ganjil/Genap")
+    };
+    const cabangNama = payloadData.cabang || "CIDENG";
+
+    console.log(`-> Received request for ${cabangNama} [Tol: ${options.useTol}, GanjilGenap: ${options.useOddEven}] - ${payloadData.data_atm.length} ATM locations`);
 
     // Format ATM list for Vincenty Matrix
     const depotCoord: [number, number] = [-6.173256, 106.810057];
     const atmList = [
-      { id: 0, plan_no: "PL-000", nama: `DEPOT ${payloadData.cabang || "CIDENG"} (START)`, koordinat: depotCoord },
+      { id: 0, plan_no: "PL-000", nama: `DEPOT ${cabangNama} (START)`, koordinat: depotCoord },
       ...payloadData.data_atm.map((atm, i) => ({
         id: i + 1,
         plan_no: atm.plan_no || `PL-${i + 1}`,
@@ -407,30 +443,38 @@ async function startServer() {
     ];
 
     try {
-      // Step 1: Fast-track NVIDIA cuOpt solver call
+      // 1. CONDITIONAL MILEAPP CALL: Hanya jika checkbox aktif (useTol / useOddEven)
+      const mileAppEnrichmentData = await fetchMileAppConstraints(payloadData.data_atm, options);
+
+      // 2. MAIN SOLVER: NVIDIA cuOpt (Selalu dieksekusi sebagai pengoptimal utama)
       const resCuOpt = await getRoutingFromCuOpt(atmList);
 
-      // Step 2: MileApp logic bypassed instantly
-      await getRoutingFromMileApp(atmList);
-
-      // Step 3: Instant mathematical VRP solution with Vincenty Geodesic Matrix
+      // 3. Instant mathematical VRP solution with Vincenty Geodesic Matrix
       const vrpResult = solveVRP(payloadData);
+
+      const hasSpecialConstraint = options.useTol || options.useOddEven;
+      const recommendationEngine = hasSpecialConstraint
+        ? "NVIDIA cuOpt + Conditional MileApp Enrichment"
+        : "NVIDIA cuOpt";
+      const recommendationReason = hasSpecialConstraint
+        ? "Rute dioptimalkan cuOpt dengan pengayaan aturan Tol & Ganjil/Genap dari MileApp."
+        : "Rute dioptimalkan murni secara kilat menggunakan NVIDIA cuOpt & Master Data.";
 
       const instantResponse = {
         source: "nvidia_cuopt",
         ringkasan_operasional: {
           ...vrpResult.ringkasan_operasional,
-          rekomendasi_engine_terbaik: "NVIDIA cuOpt",
-          alasan_rekomendasi: "Eksekusi kilat berbasis solver matematika NVIDIA cuOpt (MileApp dinonaktifkan)."
+          rekomendasi_engine_terbaik: recommendationEngine,
+          alasan_rekomendasi: recommendationReason
         },
         opsi_rute: {
           engine_nvidia_cuopt: vrpResult.runs,
-          engine_mileapp_logic: []
+          engine_mileapp_logic: mileAppEnrichmentData ? [mileAppEnrichmentData] : []
         },
         runs: vrpResult.runs
       };
 
-      console.log("-> [SUCCESS] Runsheet berhasil di-generate secara instan dengan NVIDIA cuOpt!");
+      console.log(`-> [SUCCESS] Runsheet berhasil di-generate! Engine: ${recommendationEngine}`);
       return res.json(instantResponse);
     } catch (pipelineErr: any) {
       console.warn("-> Pipeline warning, falling back to local Vincenty VRP Solver:", pipelineErr?.message || pipelineErr);

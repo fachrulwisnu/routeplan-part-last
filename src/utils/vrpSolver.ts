@@ -2,9 +2,15 @@ import { ClientATM, RoutePlanRequest, RunsheetResponse, Run, VisitStop, PetugasD
 import { FLEET_VEHICLES, STAFF_OFFICERS } from '../data/initialData';
 import { vincentyDistance } from './vincenty';
 
-// Helper to parse lat/lng from string "lat, lng"
-function parseCoords(coordStr: string): { lat: number; lng: number } {
+// Helper to parse lat/lng from string "lat, lng" or array [lat, lng]
+function parseCoords(coordStr: string | [number, number]): { lat: number; lng: number } {
   if (!coordStr) return { lat: -6.173256, lng: 106.810058 };
+  if (Array.isArray(coordStr)) {
+    return {
+      lat: isNaN(coordStr[0]) ? -6.173256 : coordStr[0],
+      lng: isNaN(coordStr[1]) ? 106.810058 : coordStr[1]
+    };
+  }
   const parts = coordStr.split(',').map(s => parseFloat(s.trim()));
   return {
     lat: isNaN(parts[0]) ? -6.173256 : parts[0],
@@ -273,7 +279,7 @@ export function solveVRP(request: RoutePlanRequest): RunsheetResponse {
         plan_no: atm.plan_no,
         nama_client: atm.nama_client,
         alamat: atm.alamat,
-        koordinat: atm.koordinat,
+        koordinat: Array.isArray(atm.koordinat) ? `${atm.koordinat[0]}, ${atm.koordinat[1]}` : (atm.koordinat || ""),
         status_atm: atm.status_atm || "RS",
         tipe_trip: atm.tipe_trip || "H",
         jam_buka_tutup: atm.jam_operasional || "08:00 - 22:00",
@@ -286,8 +292,8 @@ export function solveVRP(request: RoutePlanRequest): RunsheetResponse {
         status_lalu_lintas: statusLaluLintas,
         warna_jalur: warnaKepadatan,
         warna_kepadatan: warnaKepadatan,
-        is_zona_ganjil_genap: isOddEvenZone,
-        is_lewat_tol: isTollRoute,
+        is_zona_ganjil_genap: atm.is_zona_ganjil_genap ?? isOddEvenZone,
+        is_lewat_tol: atm.is_lewat_tol ?? isTollRoute,
         prediksi_delay_menit: delayMinutes,
         keterangan_ai: keteranganAi,
         info_rute_tambahan: stopIdx === 0 ? "Berangkat dari Depot Cideng." : isTollRoute ? "Menggunakan Jalan Tol Dalam Kota." : isOddEvenZone ? "Melewati kawasan Ganjil-Genap Jakarta." : "Melalui jalan arteri umum."

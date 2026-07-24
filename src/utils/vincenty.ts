@@ -76,10 +76,16 @@ export function vincentyDistance(
 }
 
 /**
- * Parses a coordinate string "lat, lng" into [lat, lng] numbers
+ * Parses a coordinate string "lat, lng" or [lat, lng] array into [lat, lng] numbers
  */
-export function parseCoordString(coordStr: string): [number, number] {
+export function parseCoordString(coordStr: string | [number, number]): [number, number] {
   if (!coordStr) return [-6.173256, 106.810057];
+  if (Array.isArray(coordStr)) {
+    return [
+      isNaN(coordStr[0]) ? -6.173256 : coordStr[0],
+      isNaN(coordStr[1]) ? 106.810057 : coordStr[1]
+    ];
+  }
   const parts = coordStr.split(',').map((p) => parseFloat(p.trim()));
   if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
     return [parts[0], parts[1]];

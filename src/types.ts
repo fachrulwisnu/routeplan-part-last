@@ -6,7 +6,7 @@ export interface ClientATM {
   plan_no: string;
   nama_client: string;
   alamat: string;
-  koordinat: string; // e.g., "-6.173256, 106.810058"
+  koordinat: string | [number, number]; // e.g., "-6.173256, 106.810058" or [-6.173256, 106.810058]
   jam_operasional: string; // e.g., "08:00-22:00" or "24 Jam"
   kebutuhan_kaset: number;
   status_atm: string; // "RS" (Replenishment), "PL" (Planning), "FL" (First Line), etc.
@@ -15,6 +15,8 @@ export interface ClientATM {
   wsid?: string;
   cabang?: string;
   siklus?: string;
+  is_lewat_tol?: boolean;
+  is_zona_ganjil_genap?: boolean;
 }
 
 export interface RoutePlanRequest {

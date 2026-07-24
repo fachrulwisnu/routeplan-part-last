@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ClientATM, RoutePlanRequest } from '../types';
-import { BRANCHES, CYCLES, ROUTE_PREFERENCES } from '../data/initialData';
+import { MASTER_CABANG_DATA, getAtmsForCabang, CYCLES, ROUTE_PREFERENCES } from '../data/initialData';
 import { MapView } from './MapView';
-import { ChevronDown, ChevronUp, MapPin, Search, Sparkles, Building2, Calendar, ShieldAlert, Cpu, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, MapPin, Search, Sparkles, Building2, Calendar, ShieldAlert, Cpu } from 'lucide-react';
 
 interface GenerateViewProps {
   clientAtms: ClientATM[];
@@ -15,13 +15,18 @@ export const GenerateView: React.FC<GenerateViewProps> = ({
   onGenerate,
   isGenerating
 }) => {
-  const [selectedCabang, setSelectedCabang] = useState('CIDENG');
+  const [selectedCabang, setSelectedCabang] = useState('JAKARTA');
+  const [branchAtms, setBranchAtms] = useState<ClientATM[]>(() => getAtmsForCabang('JAKARTA'));
   const [tanggalReplenish, setTanggalReplenish] = useState('02 Jun 2026');
   const [selectedSiklus, setSelectedSiklus] = useState('Pagi');
   const [selectedPreferences, setSelectedPreferences] = useState<string[]>(['Ganjil/Genap']);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
   const [loadingStep, setLoadingStep] = useState<number>(1);
+
+  useEffect(() => {
+    setBranchAtms(getAtmsForCabang(selectedCabang));
+  }, [selectedCabang]);
 
   useEffect(() => {
     if (!isGenerating) {
@@ -58,7 +63,9 @@ export const GenerateView: React.FC<GenerateViewProps> = ({
     }
   };
 
-  const filteredAtms = clientAtms.filter(atm =>
+  const activeAtms = branchAtms.length > 0 ? branchAtms : clientAtms;
+
+  const filteredAtms = activeAtms.filter(atm =>
     atm.nama_client.toLowerCase().includes(searchQuery.toLowerCase()) ||
     atm.plan_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
     atm.alamat.toLowerCase().includes(searchQuery.toLowerCase())
@@ -70,7 +77,7 @@ export const GenerateView: React.FC<GenerateViewProps> = ({
       tanggal_replenish: tanggalReplenish,
       siklus: selectedSiklus,
       preferensi_rute: selectedPreferences,
-      data_atm: filteredAtms.length > 0 ? filteredAtms : clientAtms
+      data_atm: filteredAtms.length > 0 ? filteredAtms : activeAtms
     };
     onGenerate(request);
   };
@@ -91,8 +98,10 @@ export const GenerateView: React.FC<GenerateViewProps> = ({
               onChange={e => setSelectedCabang(e.target.value)}
               className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm font-bold rounded-xl px-3.5 py-2.5 appearance-none focus:outline-none focus:border-blue-600 focus:bg-white transition-colors"
             >
-              {BRANCHES.map(b => (
-                <option key={b} value={b}>{b}</option>
+              {Object.keys(MASTER_CABANG_DATA).map(key => (
+                <option key={key} value={key}>
+                  {MASTER_CABANG_DATA[key].namaCabang}
+                </option>
               ))}
             </select>
             <ChevronDown className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
