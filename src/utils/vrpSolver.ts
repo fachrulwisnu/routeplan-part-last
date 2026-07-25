@@ -355,3 +355,134 @@ export function solveVRP(request: RoutePlanRequest): RunsheetResponse {
     runs
   };
 }
+
+/**
+ * Re-optimizes an existing array of runs (e.g. after manual Switch Trip) by re-sorting
+ * the stops inside each run using Nearest Neighbor Vincenty TSP solver from the Depot.
+ */
+export function reoptimizeRunsheet(
+  existingRuns: Run[],
+  cabangKey: string = "JAKARTA",
+  startMinutes: number = 510 // 08:30 AM
+): Run[] {
+  const selectedCabang = MASTER_CABANG_DATA[cabangKey] || MASTER_CABANG_DATA[cabangKey.toUpperCase()] || MASTER_CABANG_DATA["JAKARTA"];
+  const depotCoords = { lat: selectedCabang.koordinatPusat[0], lng: selectedCabang.koordinatPusat[1] };
+  const avgSpeedKmH = 25;
+
+  return existingRuns.map((run, runIdx) => {
+    if (!run.rute_kunjungan || run.rute_kunjungan.length === 0) {
+      return { ...run };
+    }
+
+    // Convert stops back to ClientATM-like array for TSP reordering
+    const rawAtms: ClientATM[] = run.rute_kunjungan.map(stop => ({
+      plan_no: stop.plan_no,
+      wsid: stop.plan_no,
+      nama_client: stop.nama_client,
+      alamat: stop.alamat,
+      koordinat: stop.koordinat,
+      jam_operasional: stop.jam_buka_tutup,
+      kebutuhan_kaset: stop.kebutuhan_kaset || 25,
+      status_atm: stop.status_atm,
+      tipe_trip: stop.tipe_trip,
+      is_no_bag: 0,
+      cabang: cabangKey,
+      siklus: "Pagi",
+      is_lewat_tol: stop.is_lewat_tol,
+      is_zona_ganjil_genap: stop.is_zona_ganjil_genap
+    }));
+
+    // Apply Nearest Neighbor TSP sort starting from Depot
+    const sortedAtms = nearestNeighborSort(rawAtms, depotCoords);
+
+    let currentTime = startMinutes + runIdx * 15;
+    let prevCoords = depotCoords;
+    let runTotalDistance = 0;
+    let runTotalCassettes = 0;
+
+    const newStops: VisitStop[] = sortedAtms.map((atm, stopIdx) => {
+      const currCoords = parseCoords(atm.koordinat);
+      let travelDistance = Math.round(getVincentyDistance(prevCoords.lat, prevCoords.lng, currCoords.lat, currCoords.lng) * 10) / 10;
+      let travelMinutes = Math.max(3, Math.round((travelDistance / avgSpeedKmH) * 60));
+
+      let delayMinutes = 0;
+      let statusLaluLintas = "Lancar";
+      let warnaKepadatan = run.warna_tema_run || "#9333EA";
+
+      const timeInHours = (currentTime + travelMinutes) / 60;
+      if ((timeInHours >= 7.0 && timeInHours <= 9.5) || (timeInHours >= 16.5 && timeInHours <= 19.0)) {
+        statusLaluLintas = "Macet";
+        warnaKepadatan = "#EF4444";
+        delayMinutes = 12;
+      } else if (timeInHours >= 11.5 && timeInHours <= 14.0) {
+        statusLaluLintas = "Padat";
+        warnaKepadatan = "#F97316";
+        delayMinutes = 8;
+      }
+
+      currentTime += travelMinutes + delayMinutes;
+      const jamTiba = formatTime(currentTime);
+      const jamMulai = jamTiba;
+      const durationMins = 15;
+      currentTime += durationMins;
+      const jamSelesai = formatTime(currentTime);
+      const jamKeluar = jamSelesai;
+
+      runTotalDistance += travelDistance;
+      const cassettes = atm.kebutuhan_kaset || 25;
+      runTotalCassettes += cassettes;
+      prevCoords = currCoords;
+
+      let keteranganAi = "";
+      if (statusLaluLintas === "Macet") {
+        keteranganAi = `Macet di jam sibuk. Estimasi potensi delay ${delayMinutes} menit. Rute cuOpt disesuaikan.`;
+      } else if (statusLaluLintas === "Padat") {
+        keteranganAi = `Lalu lintas padat merayap. Estimasi potensi delay ${delayMinutes} menit.`;
+      } else {
+        keteranganAi = "Jalan lancar, urutan rute teroptimasi efisien.";
+      }
+
+      return {
+        urutan: stopIdx + 1,
+        is_titik_awal: stopIdx === 0,
+        plan_no: atm.plan_no,
+        nama_client: atm.nama_client,
+        alamat: atm.alamat,
+        koordinat: typeof atm.koordinat === 'string' ? atm.koordinat : `${atm.koordinat[0]}, ${atm.koordinat[1]}`,
+        status_atm: atm.status_atm || "RS",
+        tipe_trip: atm.tipe_trip || "H",
+        jam_buka_tutup: atm.jam_operasional || "08:00 - 22:00",
+        durasi_transaksi_menit: durationMins,
+        prediksi_jam_tiba_di_lokasi: jamTiba,
+        prediksi_jam_mulai_transaksi: jamMulai,
+        prediksi_jam_selesai_transaksi: jamSelesai,
+        prediksi_jam_keluar_dari_lokasi: jamKeluar,
+        kebutuhan_kaset: cassettes,
+        status_lalu_lintas: statusLaluLintas,
+        warna_jalur: warnaKepadatan,
+        warna_kepadatan: warnaKepadatan,
+        is_zona_ganjil_genap: atm.is_zona_ganjil_genap ?? false,
+        is_lewat_tol: atm.is_lewat_tol ?? false,
+        prediksi_delay_menit: delayMinutes,
+        keterangan_ai: keteranganAi,
+        info_rute_tambahan: stopIdx === 0 ? `Berangkat dari Depot ${selectedCabang.namaCabang}.` : "Re-Optimized cuOpt sequence."
+      };
+    });
+
+    // Return to depot distance
+    const returnDist = Math.round(getVincentyDistance(prevCoords.lat, prevCoords.lng, depotCoords.lat, depotCoords.lng) * 10) / 10;
+    runTotalDistance += returnDist;
+
+    const totalDurationMins = newStops.length * 15 + Math.round((runTotalDistance / avgSpeedKmH) * 60);
+
+    return {
+      ...run,
+      jumlah_trip: newStops.length,
+      total_durasi_pengerjaan: formatDuration(totalDurationMins),
+      total_jarak_tempuh_km: Math.round(runTotalDistance * 10) / 10,
+      kapasitas_mobil: `${runTotalCassettes}/1200`,
+      rute_kunjungan: newStops
+    };
+  });
+}
+

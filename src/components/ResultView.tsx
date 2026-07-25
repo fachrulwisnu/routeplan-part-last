@@ -4,9 +4,11 @@ import { MapView } from './MapView';
 import { PetugasModal } from './PetugasModal';
 import { MobilModal } from './MobilModal';
 import { SwitchTripModal } from './SwitchTripModal';
+import { exportRunsheetToExcel, exportRunsheetToPdf } from '../utils/exportUtils';
 import {
   Layers, MapPin, Users, Truck, CheckCircle, Clock,
-  ArrowRightLeft, FileSpreadsheet, Eye, Navigation, ShieldCheck
+  ArrowRightLeft, FileSpreadsheet, Eye, Navigation, ShieldCheck,
+  Download, FileText, Sparkles, ChevronDown
 } from 'lucide-react';
 
 interface ResultViewProps {
@@ -27,6 +29,9 @@ export const ResultView: React.FC<ResultViewProps> = ({
   const [mobilModalOpen, setMobilModalOpen] = useState(false);
   const [switchTripModalOpen, setSwitchTripModalOpen] = useState(false);
   const [activeRunName, setActiveRunName] = useState<string>('run-1');
+  const [routeStatusText, setRouteStatusText] = useState<string>('Rute Original (AI Validated)');
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
 
   const { ringkasan_operasional, runs } = runsheetData;
 
@@ -61,7 +66,13 @@ export const ResultView: React.FC<ResultViewProps> = ({
   };
 
   // Save changes from Switch Trip Modal
-  const handleSaveSwitchTrip = (updatedRuns: Run[]) => {
+  const handleSaveSwitchTrip = (updatedRuns: Run[], statusText?: string) => {
+    if (statusText) {
+      setRouteStatusText(statusText);
+    } else {
+      setRouteStatusText('Post-Switch Trip (Modified)');
+    }
+
     // Recalculate summary stats
     let totalKm = 0;
     let totalCassettes = 0;
@@ -88,6 +99,42 @@ export const ResultView: React.FC<ResultViewProps> = ({
     });
   };
 
+  const handleExportExcel = async () => {
+    setIsExporting(true);
+    setExportDropdownOpen(false);
+    try {
+      await exportRunsheetToExcel({
+        runsheetData,
+        tanggalReplenish,
+        siklus,
+        cabang: "JAKARTA",
+        routeStatusText
+      });
+    } catch (err) {
+      console.error("Export Excel error:", err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportPdf = () => {
+    setIsExporting(true);
+    setExportDropdownOpen(false);
+    try {
+      exportRunsheetToPdf({
+        runsheetData,
+        tanggalReplenish,
+        siklus,
+        cabang: "JAKARTA",
+        routeStatusText
+      });
+    } catch (err) {
+      console.error("Export PDF error:", err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const usedPlates = runs.map(r => r.plat_mobil);
 
   return (
@@ -105,7 +152,14 @@ export const ResultView: React.FC<ResultViewProps> = ({
             </h3>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Status Badge */}
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold rounded-xl shadow-2xs">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <span>{routeStatusText}</span>
+            </span>
+
+            {/* Switch Trip Button */}
             <button
               onClick={() => setSwitchTripModalOpen(true)}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-blue-600/20 flex items-center gap-2 cursor-pointer"
@@ -113,6 +167,48 @@ export const ResultView: React.FC<ResultViewProps> = ({
               <ArrowRightLeft className="w-4 h-4" />
               <span>Switch Trip</span>
             </button>
+
+            {/* Export Laporan Dropdown Button */}
+            <div className="relative">
+              <button
+                onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+                disabled={isExporting}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Download className="w-4 h-4" />
+                <span>{isExporting ? "Exporting..." : "Export Laporan (AI Validated)"}</span>
+                <ChevronDown className="w-3 h-3 ml-0.5" />
+              </button>
+
+              {exportDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-1.5 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                    Format Report AI Validated
+                  </div>
+                  <button
+                    onClick={handleExportExcel}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg transition-colors cursor-pointer text-left"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <div>Export Excel (.xlsx)</div>
+                      <div className="text-[10px] text-slate-400 font-normal">Sangat Menarik & Colorful</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={handleExportPdf}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-rose-50 hover:text-rose-700 rounded-lg transition-colors cursor-pointer text-left"
+                  >
+                    <FileText className="w-4 h-4 text-rose-600 shrink-0" />
+                    <div>
+                      <div>Export PDF (.pdf)</div>
+                      <div className="text-[10px] text-slate-400 font-normal">Enterprise Styled Document</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

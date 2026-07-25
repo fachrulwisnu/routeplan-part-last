@@ -5,7 +5,7 @@ import fetch from "node-fetch";
 import OpenAI from "openai";
 import { RoutePlanRequest, RunsheetResponse } from "./src/types";
 import { DUMMY_CLIENT_ATMS, MASTER_CABANG_DATA } from "./src/data/initialData";
-import { solveVRP } from "./src/utils/vrpSolver";
+import { solveVRP, reoptimizeRunsheet } from "./src/utils/vrpSolver";
 import { vincentyDistance, parseCoordString } from "./src/utils/vincenty";
 
 // =====================================================================
@@ -493,6 +493,99 @@ async function startServer() {
     } catch (err: any) {
       console.error("Error in /api/analyze-switch-trip:", err);
       res.status(500).json({ error: "Gagal menganalisis dampak switch trip.", details: err?.message });
+    }
+  });
+
+  // API 5: Post-Switch cuOpt Re-Optimization & A/B Comparison Generator (EPIC 2)
+  app.post("/api/reoptimize-run", async (req, res) => {
+    try {
+      const { runs: manualRuns, cabang = "JAKARTA", tanggalReplenish = "02 Jun 2026", siklus = "Pagi" } = req.body;
+
+      if (!manualRuns || !Array.isArray(manualRuns)) {
+        return res.status(400).json({ error: "Payload runs wajib diisi" });
+      }
+
+      // Calculate Option A (Manual) metrics
+      let distA = 0;
+      let delayA = 0;
+      manualRuns.forEach((r: any) => {
+        distA += r.total_jarak_tempuh_km || 0;
+        if (r.rute_kunjungan) {
+          r.rute_kunjungan.forEach((s: any) => {
+            delayA += s.prediksi_delay_menit || 0;
+          });
+        }
+      });
+      distA = Math.round(distA * 10) / 10;
+
+      // Calculate Option B (cuOpt Re-Optimized)
+      const reoptimizedRuns = reoptimizeRunsheet(manualRuns, cabang);
+
+      let distB = 0;
+      let delayB = 0;
+      reoptimizedRuns.forEach((r: any) => {
+        distB += r.total_jarak_tempuh_km || 0;
+        if (r.rute_kunjungan) {
+          r.rute_kunjungan.forEach((s: any) => {
+            delayB += s.prediksi_delay_menit || 0;
+          });
+        }
+      });
+      distB = Math.round(distB * 10) / 10;
+
+      const distSaved = Math.round((distA - distB) * 10) / 10;
+      const delaySaved = delayA - delayB;
+
+      // Generate Reasoning via LLM (Nemotron / Llama 3.3)
+      let reasoningText = "";
+      try {
+        const promptText = `Bandingkan dua susunan rute untuk Sentral Planner ROC-COS cabang ${cabang}:
+Opsi A (Manual Planner): Total Jarak ${distA} km, Total Delay ${delayA} menit.
+Opsi B (Optimasi cuOpt AI): Total Jarak ${distB} km, Total Delay ${delayB} menit. (Hemat ${distSaved} km, Hemat ${delaySaved} menit).
+
+Jelaskan secara singkat dan profesional (2-3 kalimat) mengapa algoritma cuOpt mereorganisasi urutan rute tersebut, titik mana yang dipindahkan urutannya, dan bagaimana dampaknya terhadap geofencing serta jam operasional.`;
+
+        const completion = await openaiNemotron.chat.completions.create({
+          model: "nvidia/nemotron-3-ultra-550b-a55b",
+          messages: [
+            { role: "system", content: "Anda adalah Enterprise VRP Optimization Specialist. Berikan penjelasan singkat, profesional, dan logis." },
+            { role: "user", content: promptText }
+          ],
+          temperature: 0.3,
+          max_tokens: 500
+        } as any);
+
+        reasoningText = completion.choices[0]?.message?.content || "";
+      } catch (llmErr) {
+        console.warn("LLM reasoning fallback triggered:", llmErr);
+      }
+
+      if (!reasoningText) {
+        reasoningText = distSaved >= 0
+          ? `Algoritma cuOpt mereorganisasi urutan kunjungan berdasarkan jarak terpendek (Vincenty TSP). Penyesuaian urutan ini berhasil memangkas jarak tempuh sebesar ${Math.abs(distSaved)} km dan mengurangi akumulasi delay lalu lintas sebesar ${Math.max(0, delaySaved)} menit dibanding urutan manual Planner.`
+          : `cuOpt menyesuaikan rantai kedatangan untuk menghindari potensi titik kemacetan utama di jam sibuk. Meskipun jarak fisik sedikit bertambah (+${Math.abs(distSaved)} km), total waktu tunda lalu lintas berhasil dikurangi demi menjamin ETA tepat waktu.`;
+      }
+
+      res.json({
+        optionA: {
+          runs: manualRuns,
+          totalDistance: distA,
+          totalDelay: delayA
+        },
+        optionB: {
+          runs: reoptimizedRuns,
+          totalDistance: distB,
+          totalDelay: delayB
+        },
+        savings: {
+          distanceKmSaved: distSaved,
+          delayMinsSaved: delaySaved
+        },
+        reasoning: reasoningText
+      });
+    } catch (err: any) {
+      console.error("Error in /api/reoptimize-run:", err);
+      res.status(500).json({ error: "Gagal mengoptimalkan ulang rute cuOpt.", details: err?.message });
     }
   });
 

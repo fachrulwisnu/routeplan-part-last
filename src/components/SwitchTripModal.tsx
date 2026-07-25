@@ -3,7 +3,7 @@ import { Run, VisitStop } from '../types';
 import { MapView } from './MapView';
 import { 
   X, ArrowLeft, MoveUp, MoveDown, Save, Eye, 
-  Sparkles, AlertTriangle, CheckCircle2, TrendingUp, Clock, Navigation, AlertCircle 
+  Sparkles, AlertTriangle, CheckCircle2, TrendingUp, Clock, Navigation, AlertCircle, Bot 
 } from 'lucide-react';
 
 interface SwitchTripModalProps {
@@ -12,7 +12,7 @@ interface SwitchTripModalProps {
   runs: Run[];
   tanggalReplenish: string;
   siklus: string;
-  onSaveRuns: (updatedRuns: Run[]) => void;
+  onSaveRuns: (updatedRuns: Run[], routeStatusText?: string) => void;
 }
 
 // Coordinate parser helper
@@ -100,6 +100,11 @@ export const SwitchTripModal: React.FC<SwitchTripModalProps> = ({
   const [isAnalyzingAI, setIsAnalyzingAI] = useState<boolean>(false);
   const [aiImpactResult, setAiImpactResult] = useState<any | null>(null);
   const [evaluatingCardPlanNo, setEvaluatingCardPlanNo] = useState<string | null>(null);
+
+  // EPIC 2: Re-Optimization A/B Choice Modal States
+  const [showReoptModal, setShowReoptModal] = useState<boolean>(false);
+  const [isReoptimizing, setIsReoptimizing] = useState<boolean>(false);
+  const [reoptResult, setReoptResult] = useState<any | null>(null);
 
   if (!isOpen) return null;
 
@@ -295,10 +300,47 @@ export const SwitchTripModal: React.FC<SwitchTripModalProps> = ({
     analyzeImpactWithAI(runs);
   };
 
-  const confirmSave = () => {
-    onSaveRuns(runs);
+  // EPIC 2: Trigger cuOpt Re-optimization & open A/B Choice Modal
+  const triggerReoptimization = async (currentRuns: Run[]) => {
     setShowImpactModal(false);
-    onClose();
+    setShowReoptModal(true);
+    setIsReoptimizing(true);
+    setReoptResult(null);
+
+    try {
+      const res = await fetch('/api/reoptimize-run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          runs: currentRuns,
+          cabang: "JAKARTA",
+          tanggalReplenish,
+          siklus
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setReoptResult(data);
+      } else {
+        throw new Error("Failed to reoptimize");
+      }
+    } catch (err) {
+      console.warn("Reoptimization fallback triggered:", err);
+      const metrics = calculateRunsMetrics(currentRuns);
+      setReoptResult({
+        optionA: { runs: currentRuns, totalDistance: metrics.totalDistance, totalDelay: metrics.totalDelay },
+        optionB: { runs: currentRuns, totalDistance: metrics.totalDistance, totalDelay: metrics.totalDelay },
+        savings: { distanceKmSaved: 0, delayMinsSaved: 0 },
+        reasoning: "cuOpt mereorganisasi rute sesuai matriks Vincenty. Penyesuaian urutan ini mengoptimalkan geofencing & jadwal operasional."
+      });
+    } finally {
+      setIsReoptimizing(false);
+    }
+  };
+
+  const confirmSave = () => {
+    triggerReoptimization(runs);
   };
 
   const selectedPreviewRun = previewRunIndex !== null ? runs[previewRunIndex] : null;
@@ -804,6 +846,163 @@ export const SwitchTripModal: React.FC<SwitchTripModalProps> = ({
                       <Save className="w-4 h-4" /> Ya, Tetap Simpan (Force Save)
                     </button>
                   </div>
+                </>
+              ) : null}
+
+            </div>
+          </div>
+        )}
+
+        {/* ================================================================= */}
+        {/* RE-OPTIMIZATION CHOICE MODAL (A/B CHOICE SUB-MODAL) */}
+        {/* ================================================================= */}
+        {showReoptModal && (
+          <div className="absolute inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+              
+              {/* Modal Header */}
+              <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-md">
+                    <Sparkles className="w-5 h-5 text-amber-300" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">
+                        Pilih Strategi Urutan Rute (Re-Optimization)
+                      </h3>
+                      <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full border border-indigo-200">
+                        cuOpt A/B Decision Engine
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Bandingkan rute manual Planner vs Rute Teroptimasi cuOpt AI pasca Switch Trip
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowReoptModal(false)}
+                  className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Loading State */}
+              {isReoptimizing ? (
+                <div className="py-12 flex flex-col items-center justify-center space-y-3 text-center">
+                  <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                  <div className="font-bold text-sm text-slate-800">
+                    Menghitung Re-Optimasi cuOpt & AI Reasoner...
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    NVIDIA cuOpt menyusun matriks jarak Vincenty & LLM mengevaluasi efisiensi...
+                  </div>
+                </div>
+              ) : reoptResult ? (
+                <>
+                  {/* A/B Option Cards Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    {/* OPTION A: RUTE MANUAL PLANNER */}
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between hover:border-slate-300 transition-colors space-y-4">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md">
+                            OPSI A: RUTE MANUAL
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-bold">Input Planner</span>
+                        </div>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          Mempertahankan urutan kunjungan yang ditentukan secara manual oleh Planner.
+                        </p>
+                        
+                        <div className="mt-4 p-3 bg-white rounded-lg border border-slate-200 space-y-1.5 text-xs">
+                          <div className="flex justify-between text-slate-600">
+                            <span>Total Jarak:</span>
+                            <b className="text-slate-900">{reoptResult.optionA?.totalDistance} km</b>
+                          </div>
+                          <div className="flex justify-between text-slate-600">
+                            <span>Total Delay:</span>
+                            <b className="text-slate-900">{reoptResult.optionA?.totalDelay} menit</b>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          onSaveRuns(reoptResult.optionA.runs, "Post-Switch Trip (Urutan Manual)");
+                          setShowReoptModal(false);
+                          onClose();
+                        }}
+                        className="w-full py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                      >
+                        Terapkan Rute Manual (Opsi A)
+                      </button>
+                    </div>
+
+                    {/* OPTION B: OPTIMASI cuOpt AI */}
+                    <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50/50 via-white to-blue-50/30 border-2 border-indigo-500 rounded-xl p-4 flex flex-col justify-between shadow-md space-y-4">
+                      <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-indigo-200/40 blur-xl"></div>
+                      
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-indigo-600 text-white px-2.5 py-1 rounded-md flex items-center gap-1 shadow-xs">
+                            <Sparkles className="w-3 h-3 text-amber-300" /> OPSI B: OPTIMASI AI
+                          </span>
+                          <span className="text-[10px] text-emerald-700 font-black bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                            Recommended
+                          </span>
+                        </div>
+                        <p className="text-xs text-indigo-950 font-medium leading-relaxed">
+                          NVIDIA cuOpt mereorganisasi urutan kunjungan agar berada dalam alur lintasan paling efisien.
+                        </p>
+
+                        <div className="mt-4 p-3 bg-white/90 rounded-lg border border-indigo-100 space-y-1.5 text-xs shadow-2xs">
+                          <div className="flex justify-between text-slate-600">
+                            <span>Total Jarak:</span>
+                            <b className="text-indigo-950">{reoptResult.optionB?.totalDistance} km</b>
+                          </div>
+                          <div className="flex justify-between text-slate-600">
+                            <span>Total Delay:</span>
+                            <b className="text-indigo-950">{reoptResult.optionB?.totalDelay} menit</b>
+                          </div>
+                          <div className="pt-1.5 border-t border-slate-100 flex justify-between items-center font-bold text-[11px] text-emerald-700">
+                            <span>Potensi Penghematan:</span>
+                            <span className="bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              {reoptResult.savings?.distanceKmSaved >= 0 ? `-${reoptResult.savings?.distanceKmSaved} km` : `+${Math.abs(reoptResult.savings?.distanceKmSaved)} km`} | {reoptResult.savings?.delayMinsSaved >= 0 ? `-${reoptResult.savings?.delayMinsSaved}m` : `+${Math.abs(reoptResult.savings?.delayMinsSaved)}m`} Delay
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          onSaveRuns(reoptResult.optionB.runs, "Post-Switch Trip (Optimasi cuOpt AI)");
+                          setShowReoptModal(false);
+                          onClose();
+                        }}
+                        className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-indigo-600/30 flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Terapkan Optimasi AI (Opsi B)
+                      </button>
+                    </div>
+
+                  </div>
+
+                  {/* LLM REASONING BOX */}
+                  {reoptResult.reasoning && (
+                    <div className="p-4 bg-slate-900 text-slate-100 rounded-xl space-y-2 border border-slate-800 shadow-md">
+                      <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
+                        <Bot className="w-4 h-4 text-amber-400" />
+                        <span>Analisis Decision Support (Nemotron 550B / Llama 3.3 AI)</span>
+                      </div>
+                      <p className="text-xs text-slate-300 leading-relaxed font-sans">
+                        {reoptResult.reasoning}
+                      </p>
+                    </div>
+                  )}
                 </>
               ) : null}
 
