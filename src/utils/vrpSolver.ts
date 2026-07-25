@@ -349,7 +349,7 @@ export function solveVRP(request: RoutePlanRequest): RunsheetResponse {
       status_tugas: statusTugasStr,
       total_mobil: `${activeCarsCount}/10`,
       total_estimasi_delay_menit: totalDelayMinutes,
-      rekomendasi_engine_terbaik: "NVIDIA cuOpt (Vincenty Base)",
+      rekomendasi_engine_terbaik: "Advantage Smart Route Engine",
       alasan_rekomendasi: "Jarak divalidasi dengan tingkat akurasi elipsoid Vincenty dan menghindari zona macet."
     },
     runs
@@ -435,7 +435,7 @@ export function reoptimizeRunsheet(
 
       let keteranganAi = "";
       if (statusLaluLintas === "Macet") {
-        keteranganAi = `Macet di jam sibuk. Estimasi potensi delay ${delayMinutes} menit. Rute cuOpt disesuaikan.`;
+        keteranganAi = `Macet di jam sibuk. Estimasi potensi delay ${delayMinutes} menit. Rute teroptimasi disesuaikan.`;
       } else if (statusLaluLintas === "Padat") {
         keteranganAi = `Lalu lintas padat merayap. Estimasi potensi delay ${delayMinutes} menit.`;
       } else {
@@ -465,7 +465,7 @@ export function reoptimizeRunsheet(
         is_lewat_tol: atm.is_lewat_tol ?? false,
         prediksi_delay_menit: delayMinutes,
         keterangan_ai: keteranganAi,
-        info_rute_tambahan: stopIdx === 0 ? `Berangkat dari Depot ${selectedCabang.namaCabang}.` : "Re-Optimized cuOpt sequence."
+        info_rute_tambahan: stopIdx === 0 ? `Berangkat dari Depot ${selectedCabang.namaCabang}.` : "Re-Optimized Advantage Smart Route sequence."
       };
     });
 

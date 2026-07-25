@@ -496,7 +496,7 @@ async function startServer() {
     }
   });
 
-  // API 5: Post-Switch cuOpt Re-Optimization & A/B Comparison Generator (EPIC 2)
+  // API 5: Post-Switch Advantage Smart Route Re-Optimization & A/B Comparison Generator (EPIC 2)
   app.post("/api/reoptimize-run", async (req, res) => {
     try {
       const { runs: manualRuns, cabang = "JAKARTA", tanggalReplenish = "02 Jun 2026", siklus = "Pagi" } = req.body;
@@ -518,7 +518,7 @@ async function startServer() {
       });
       distA = Math.round(distA * 10) / 10;
 
-      // Calculate Option B (cuOpt Re-Optimized)
+      // Calculate Option B (Advantage Smart Route Re-Optimized)
       const reoptimizedRuns = reoptimizeRunsheet(manualRuns, cabang);
 
       let distB = 0;
@@ -536,34 +536,68 @@ async function startServer() {
       const distSaved = Math.round((distA - distB) * 10) / 10;
       const delaySaved = delayA - delayB;
 
-      // Generate Reasoning via LLM (Nemotron / Llama 3.3)
-      let reasoningText = "";
-      try {
-        const promptText = `Bandingkan dua susunan rute untuk Sentral Planner ROC-COS cabang ${cabang}:
-Opsi A (Manual Planner): Total Jarak ${distA} km, Total Delay ${delayA} menit.
-Opsi B (Optimasi cuOpt AI): Total Jarak ${distB} km, Total Delay ${delayB} menit. (Hemat ${distSaved} km, Hemat ${delaySaved} menit).
+      // Generate Reasoning via LLM with strict JSON system prompt
+      let parsedAiAnalysis = {
+        alasan_optimasi: "",
+        kesimpulan_singkat: ""
+      };
 
-Jelaskan secara singkat dan profesional (2-3 kalimat) mengapa algoritma cuOpt mereorganisasi urutan rute tersebut, titik mana yang dipindahkan urutannya, dan bagaimana dampaknya terhadap geofencing serta jam operasional.`;
+      try {
+        const systemPrompt = `Anda adalah Advantage AI Decision Engine, sistem pakar VRP (Vehicle Routing Problem) untuk PT Advantage SCM.
+Tugas Anda adalah menganalisis perbandingan Rute Manual (Input Planner) vs Rute Teroptimasi (Advantage Smart Route).
+
+ATURAN DILARANG DILANGGAR:
+1. Output WAJIB berupa JSON MURNI tanpa markdown (TIDAK BOLEH Pakai \`\`\`json), tanpa teks pengantar, tanpa teks penutup, dan TANPA proses berpikir (Chain of Thought).
+2. Bahasa WAJIB Bahasa Indonesia yang profesional, padat, dan lugas untuk tim operasional logistik.
+3. DILARANG KERAS menggunakan kata "Nemotron", "Llama", "NVIDIA", "cuOpt", atau sejenisnya. Gunakan istilah "Advantage Smart Route" atau "AI Decision Engine".
+
+Gunakan format JSON berikut secara persis:
+{
+  "alasan_optimasi": "<penjelasan singkat 2-3 kalimat mengapa urutan rute diatur ulang, titik mana yang dipindahkan urutannya, dan bagaimana dampaknya terhadap efisiensi jam/jalur tol>",
+  "kesimpulan_singkat": "<1 kalimat kesimpulan ringkas efisiensi rute AI>"
+}`;
+
+        const userPrompt = `Cabang Operasional: ${cabang}
+Opsi A (Rute Manual Planner): Total Jarak ${distA} km, Total Delay ${delayA} menit.
+Opsi B (Advantage Smart Route): Total Jarak ${distB} km, Total Delay ${delayB} menit.
+Data Penghematan: Hemat ${distSaved} km, Hemat ${delaySaved} menit.
+
+Silakan hasilkan JSON murni sesuai instruksi.`;
 
         const completion = await openaiNemotron.chat.completions.create({
           model: "nvidia/nemotron-3-ultra-550b-a55b",
           messages: [
-            { role: "system", content: "Anda adalah Enterprise VRP Optimization Specialist. Berikan penjelasan singkat, profesional, dan logis." },
-            { role: "user", content: promptText }
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
           ],
-          temperature: 0.3,
-          max_tokens: 500
+          temperature: 0.2,
+          max_tokens: 400
         } as any);
 
-        reasoningText = completion.choices[0]?.message?.content || "";
+        const rawText = completion.choices[0]?.message?.content || "";
+        let cleanedText = rawText.trim();
+        if (cleanedText.startsWith("```")) {
+          cleanedText = cleanedText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+        }
+
+        const jsonObj = JSON.parse(cleanedText);
+        if (jsonObj && jsonObj.alasan_optimasi) {
+          parsedAiAnalysis = {
+            alasan_optimasi: jsonObj.alasan_optimasi,
+            kesimpulan_singkat: jsonObj.kesimpulan_singkat || "Rute Advantage Smart Route memberikan urutan paling efisien dan stabil."
+          };
+        }
       } catch (llmErr) {
-        console.warn("LLM reasoning fallback triggered:", llmErr);
+        console.warn("LLM JSON reasoning fallback triggered:", llmErr);
       }
 
-      if (!reasoningText) {
-        reasoningText = distSaved >= 0
-          ? `Algoritma cuOpt mereorganisasi urutan kunjungan berdasarkan jarak terpendek (Vincenty TSP). Penyesuaian urutan ini berhasil memangkas jarak tempuh sebesar ${Math.abs(distSaved)} km dan mengurangi akumulasi delay lalu lintas sebesar ${Math.max(0, delaySaved)} menit dibanding urutan manual Planner.`
-          : `cuOpt menyesuaikan rantai kedatangan untuk menghindari potensi titik kemacetan utama di jam sibuk. Meskipun jarak fisik sedikit bertambah (+${Math.abs(distSaved)} km), total waktu tunda lalu lintas berhasil dikurangi demi menjamin ETA tepat waktu.`;
+      if (!parsedAiAnalysis.alasan_optimasi) {
+        parsedAiAnalysis = {
+          alasan_optimasi: distSaved >= 0
+            ? `Advantage Smart Route mereorganisasi urutan kunjungan berdasarkan matriks jarak terpendek Vincenty. Penyesuaian urutan ini berhasil memangkas jarak tempuh sebesar ${Math.abs(distSaved)} km dan mengurangi akumulasi delay lalu lintas sebesar ${Math.max(0, delaySaved)} menit dibanding urutan manual Planner.`
+            : `AI Decision Engine menyesuaikan rantai kedatangan untuk menghindari potensi titik kemacetan utama di jam sibuk. Meskipun jarak fisik sedikit bertambah (+${Math.abs(distSaved)} km), total waktu tunda lalu lintas berhasil dikurangi demi menjamin ETA tepat waktu.`,
+          kesimpulan_singkat: "Rute teroptimasi AI memberikan urutan paling efisien dan stabil."
+        };
       }
 
       res.json({
@@ -581,11 +615,13 @@ Jelaskan secara singkat dan profesional (2-3 kalimat) mengapa algoritma cuOpt me
           distanceKmSaved: distSaved,
           delayMinsSaved: delaySaved
         },
-        reasoning: reasoningText
+        alasan_optimasi: parsedAiAnalysis.alasan_optimasi,
+        kesimpulan_singkat: parsedAiAnalysis.kesimpulan_singkat,
+        reasoning: parsedAiAnalysis.alasan_optimasi
       });
     } catch (err: any) {
       console.error("Error in /api/reoptimize-run:", err);
-      res.status(500).json({ error: "Gagal mengoptimalkan ulang rute cuOpt.", details: err?.message });
+      res.status(500).json({ error: "Gagal mengoptimalkan ulang rute Advantage Smart Route.", details: err?.message });
     }
   });
 

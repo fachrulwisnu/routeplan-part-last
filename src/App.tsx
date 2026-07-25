@@ -120,12 +120,12 @@ export default function App() {
                 <span className="text-emerald-400 font-bold uppercase">Connected</span>
               </div>
 
-              {/* NVIDIA Nemotron Status */}
+              {/* Advantage AI Engine Status */}
               <div className="hidden lg:flex items-center gap-1.5 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/80 text-[11px]">
                 <Cpu className="w-3.5 h-3.5 text-blue-400" />
                 <span className="text-slate-400">AI Engine:</span>
                 <span className="text-blue-400 font-bold uppercase">
-                  {aiEngineSource === 'nvidia_nemotron' ? 'NVIDIA Nemotron' : 'VRP AI Solver'}
+                  {aiEngineSource === 'nvidia_nemotron' ? 'Advantage AI Engine' : 'VRP AI Solver'}
                 </span>
               </div>
 

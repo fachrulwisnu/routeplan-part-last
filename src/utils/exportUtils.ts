@@ -85,7 +85,7 @@ export async function exportRunsheetToExcel({
   const summaryData = [
     ['Total Run / Mobil', `${ringkasan_operasional.total_run} Run (${ringkasan_operasional.total_mobil})`, 'Total Jarak Tempuh', `${ringkasan_operasional.total_jarak_tempuh_km} Km`],
     ['Total Kunjungan ATM', `${ringkasan_operasional.total_kunjungan_atm} ATM`, 'Total Estimasi Delay', `${ringkasan_operasional.total_estimasi_delay_menit || 0} Menit`],
-    ['Kapasitas Kaset', `${ringkasan_operasional.kapasitas_kaset_terpakai}`, 'Engine Optimasi', `${ringkasan_operasional.rekomendasi_engine_terbaik || 'NVIDIA cuOpt'}`],
+    ['Kapasitas Kaset', `${ringkasan_operasional.kapasitas_kaset_terpakai}`, 'Engine Optimasi', `${ringkasan_operasional.rekomendasi_engine_terbaik || 'Advantage Smart Route'}`],
   ];
 
   summaryData.forEach((row) => {

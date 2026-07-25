@@ -300,7 +300,7 @@ export const SwitchTripModal: React.FC<SwitchTripModalProps> = ({
     analyzeImpactWithAI(runs);
   };
 
-  // EPIC 2: Trigger cuOpt Re-optimization & open A/B Choice Modal
+  // EPIC 2: Trigger Advantage Smart Route Re-optimization & open A/B Choice Modal
   const triggerReoptimization = async (currentRuns: Run[]) => {
     setShowImpactModal(false);
     setShowReoptModal(true);
@@ -332,7 +332,9 @@ export const SwitchTripModal: React.FC<SwitchTripModalProps> = ({
         optionA: { runs: currentRuns, totalDistance: metrics.totalDistance, totalDelay: metrics.totalDelay },
         optionB: { runs: currentRuns, totalDistance: metrics.totalDistance, totalDelay: metrics.totalDelay },
         savings: { distanceKmSaved: 0, delayMinsSaved: 0 },
-        reasoning: "cuOpt mereorganisasi rute sesuai matriks Vincenty. Penyesuaian urutan ini mengoptimalkan geofencing & jadwal operasional."
+        alasan_optimasi: "Advantage Smart Route mereorganisasi urutan rute berdasarkan matriks jarak Vincenty. Penyesuaian ini mengoptimalkan alur lintasan & jadwal operasional.",
+        kesimpulan_singkat: "Rute teroptimasi AI memberikan urutan paling efisien.",
+        reasoning: "Advantage Smart Route mereorganisasi urutan rute berdasarkan matriks jarak Vincenty. Penyesuaian ini mengoptimalkan alur lintasan & jadwal operasional."
       });
     } finally {
       setIsReoptimizing(false);
@@ -857,152 +859,275 @@ export const SwitchTripModal: React.FC<SwitchTripModalProps> = ({
         {/* RE-OPTIMIZATION CHOICE MODAL (A/B CHOICE SUB-MODAL) */}
         {/* ================================================================= */}
         {showReoptModal && (
-          <div className="absolute inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
-            <div className="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+            <div className="bg-white border border-slate-200 rounded-2xl max-w-5xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[92vh] overflow-y-auto animate-in zoom-in-95 duration-200">
               
-              {/* Modal Header */}
-              <div className="flex items-start justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-md">
-                    <Sparkles className="w-5 h-5 text-amber-300" />
+              {/* HEADER MODAL */}
+              <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md shadow-blue-600/20">
+                    <Sparkles className="w-6 h-6 text-amber-300 animate-pulse" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">
-                        Pilih Strategi Urutan Rute (Re-Optimization)
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h3 className="text-xl font-black text-slate-900 tracking-tight">
+                        Validasi Perubahan Rute (Advantage AI)
                       </h3>
-                      <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full border border-indigo-200">
-                        cuOpt A/B Decision Engine
+                      <span className="text-[11px] font-extrabold bg-blue-50 text-blue-700 px-3 py-1 rounded-full border border-blue-200">
+                        Advantage AI Decision Engine
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500">
-                      Bandingkan rute manual Planner vs Rute Teroptimasi cuOpt AI pasca Switch Trip
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Bandingkan Rute Manual Planner vs Rute Teroptimasi Advantage Smart Route pasca Switch Trip
                     </p>
                   </div>
                 </div>
 
                 <button
                   onClick={() => setShowReoptModal(false)}
-                  className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                  className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Loading State */}
+              {/* LOADING STATE */}
               {isReoptimizing ? (
-                <div className="py-12 flex flex-col items-center justify-center space-y-3 text-center">
-                  <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                  <div className="font-bold text-sm text-slate-800">
-                    Menghitung Re-Optimasi cuOpt & AI Reasoner...
+                <div className="py-16 flex flex-col items-center justify-center space-y-4 text-center">
+                  <div className="relative">
+                    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <Sparkles className="w-5 h-5 text-amber-400 absolute inset-0 m-auto" />
                   </div>
-                  <div className="text-xs text-slate-500">
-                    NVIDIA cuOpt menyusun matriks jarak Vincenty & LLM mengevaluasi efisiensi...
+                  <div className="space-y-1">
+                    <div className="font-extrabold text-base text-slate-900">
+                      Menghitung Re-Optimasi Advantage Smart Route...
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      AI Decision Engine menyusun matriks jarak Vincenty & menganalisis efisiensi rute...
+                    </div>
                   </div>
                 </div>
               ) : reoptResult ? (
                 <>
-                  {/* A/B Option Cards Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* TOP CONTENT: SIDE-BY-SIDE CARDS */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     
-                    {/* OPTION A: RUTE MANUAL PLANNER */}
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between hover:border-slate-300 transition-colors space-y-4">
+                    {/* OPSI A: RUTE MANUAL PLANNER */}
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col justify-between hover:border-slate-300 transition-all space-y-4">
                       <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-black uppercase tracking-wider bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-[11px] font-black uppercase tracking-wider bg-slate-200 text-slate-700 px-3 py-1 rounded-lg">
                             OPSI A: RUTE MANUAL
                           </span>
-                          <span className="text-[10px] text-slate-500 font-bold">Input Planner</span>
+                          <span className="text-[11px] text-slate-500 font-bold">Input Planner</span>
                         </div>
-                        <p className="text-xs text-slate-600 leading-relaxed">
+                        <p className="text-xs text-slate-600 leading-relaxed font-medium">
                           Mempertahankan urutan kunjungan yang ditentukan secara manual oleh Planner.
                         </p>
                         
-                        <div className="mt-4 p-3 bg-white rounded-lg border border-slate-200 space-y-1.5 text-xs">
-                          <div className="flex justify-between text-slate-600">
-                            <span>Total Jarak:</span>
-                            <b className="text-slate-900">{reoptResult.optionA?.totalDistance} km</b>
+                        <div className="mt-4 p-4 bg-white rounded-xl border border-slate-200/80 space-y-2 text-xs shadow-2xs">
+                          <div className="flex justify-between items-center text-slate-600">
+                            <span className="font-medium">Total Jarak Tempuh:</span>
+                            <b className="text-slate-900 text-sm font-black">{reoptResult.optionA?.totalDistance} km</b>
                           </div>
-                          <div className="flex justify-between text-slate-600">
-                            <span>Total Delay:</span>
-                            <b className="text-slate-900">{reoptResult.optionA?.totalDelay} menit</b>
+                          <div className="flex justify-between items-center text-slate-600">
+                            <span className="font-medium">Total Estimasi Delay:</span>
+                            <b className="text-slate-900 text-sm font-black">{reoptResult.optionA?.totalDelay} menit</b>
                           </div>
                         </div>
                       </div>
-
-                      <button
-                        onClick={() => {
-                          onSaveRuns(reoptResult.optionA.runs, "Post-Switch Trip (Urutan Manual)");
-                          setShowReoptModal(false);
-                          onClose();
-                        }}
-                        className="w-full py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl transition-colors cursor-pointer"
-                      >
-                        Terapkan Rute Manual (Opsi A)
-                      </button>
                     </div>
 
-                    {/* OPTION B: OPTIMASI cuOpt AI */}
-                    <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50/50 via-white to-blue-50/30 border-2 border-indigo-500 rounded-xl p-4 flex flex-col justify-between shadow-md space-y-4">
-                      <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-indigo-200/40 blur-xl"></div>
+                    {/* OPSI B: OPTIMASI ADVANTAGE SMART ROUTE */}
+                    <div className="relative overflow-hidden bg-gradient-to-br from-blue-50/80 via-white to-indigo-50/50 border-2 border-blue-500 rounded-2xl p-5 flex flex-col justify-between shadow-xl shadow-blue-500/10 space-y-4">
+                      <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-blue-200/40 blur-2xl pointer-events-none"></div>
                       
                       <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-black uppercase tracking-wider bg-indigo-600 text-white px-2.5 py-1 rounded-md flex items-center gap-1 shadow-xs">
-                            <Sparkles className="w-3 h-3 text-amber-300" /> OPSI B: OPTIMASI AI
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-[11px] font-black uppercase tracking-wider bg-blue-600 text-white px-3 py-1 rounded-lg flex items-center gap-1.5 shadow-xs">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-300" /> OPSI B: OPTIMASI AI
                           </span>
-                          <span className="text-[10px] text-emerald-700 font-black bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
-                            Recommended
+                          <span className="text-[11px] text-emerald-800 font-black bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Recommended
                           </span>
                         </div>
-                        <p className="text-xs text-indigo-950 font-medium leading-relaxed">
-                          NVIDIA cuOpt mereorganisasi urutan kunjungan agar berada dalam alur lintasan paling efisien.
+                        <p className="text-xs text-slate-700 font-semibold leading-relaxed">
+                          Advantage Smart Route mereorganisasi urutan kunjungan untuk efisiensi jarak & minimasi macet.
                         </p>
 
-                        <div className="mt-4 p-3 bg-white/90 rounded-lg border border-indigo-100 space-y-1.5 text-xs shadow-2xs">
-                          <div className="flex justify-between text-slate-600">
-                            <span>Total Jarak:</span>
-                            <b className="text-indigo-950">{reoptResult.optionB?.totalDistance} km</b>
+                        <div className="mt-4 p-4 bg-white/90 backdrop-blur-xs rounded-xl border border-blue-200 space-y-2 text-xs shadow-2xs">
+                          <div className="flex justify-between items-center text-slate-700">
+                            <span className="font-medium">Total Jarak Tempuh:</span>
+                            <b className="text-blue-950 text-sm font-black">{reoptResult.optionB?.totalDistance} km</b>
                           </div>
-                          <div className="flex justify-between text-slate-600">
-                            <span>Total Delay:</span>
-                            <b className="text-indigo-950">{reoptResult.optionB?.totalDelay} menit</b>
+                          <div className="flex justify-between items-center text-slate-700">
+                            <span className="font-medium">Total Estimasi Delay:</span>
+                            <b className="text-blue-950 text-sm font-black">{reoptResult.optionB?.totalDelay} menit</b>
                           </div>
-                          <div className="pt-1.5 border-t border-slate-100 flex justify-between items-center font-bold text-[11px] text-emerald-700">
-                            <span>Potensi Penghematan:</span>
-                            <span className="bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                              {reoptResult.savings?.distanceKmSaved >= 0 ? `-${reoptResult.savings?.distanceKmSaved} km` : `+${Math.abs(reoptResult.savings?.distanceKmSaved)} km`} | {reoptResult.savings?.delayMinsSaved >= 0 ? `-${reoptResult.savings?.delayMinsSaved}m` : `+${Math.abs(reoptResult.savings?.delayMinsSaved)}m`} Delay
+                          
+                          {/* Savings Badge */}
+                          <div className="pt-2 border-t border-slate-100 flex justify-between items-center font-bold text-xs">
+                            <span className="text-slate-600">Efisiensi Rute AI:</span>
+                            <span className="bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg border border-emerald-200 font-extrabold flex items-center gap-1">
+                              <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                              {reoptResult.savings?.distanceKmSaved >= 0 ? `Hemat ${reoptResult.savings?.distanceKmSaved} km` : `+${Math.abs(reoptResult.savings?.distanceKmSaved)} km`}
+                              {" | "}
+                              {reoptResult.savings?.delayMinsSaved >= 0 ? `Hemat ${reoptResult.savings?.delayMinsSaved}m Delay` : `+${Math.abs(reoptResult.savings?.delayMinsSaved)}m Delay`}
                             </span>
                           </div>
                         </div>
                       </div>
-
-                      <button
-                        onClick={() => {
-                          onSaveRuns(reoptResult.optionB.runs, "Post-Switch Trip (Optimasi cuOpt AI)");
-                          setShowReoptModal(false);
-                          onClose();
-                        }}
-                        className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-indigo-600/30 flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Terapkan Optimasi AI (Opsi B)
-                      </button>
                     </div>
 
                   </div>
 
-                  {/* LLM REASONING BOX */}
-                  {reoptResult.reasoning && (
-                    <div className="p-4 bg-slate-900 text-slate-100 rounded-xl space-y-2 border border-slate-800 shadow-md">
-                      <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
-                        <Bot className="w-4 h-4 text-amber-400" />
-                        <span>Analisis Decision Support (Nemotron 550B / Llama 3.3 AI)</span>
+                  {/* MIDDLE CONTENT: VISUAL SEQUENCE COMPARISON */}
+                  <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-200/60 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Navigation className="w-4 h-4 text-blue-600" />
+                        <h4 className="text-sm font-extrabold text-slate-900">
+                          Perbandingan Urutan Titik (Sequence Matrix)
+                        </h4>
                       </div>
-                      <p className="text-xs text-slate-300 leading-relaxed font-sans">
-                        {reoptResult.reasoning}
-                      </p>
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        Atas: Rute Manual vs Bawah: Rute Teroptimasi AI
+                      </span>
                     </div>
-                  )}
+
+                    {/* Render comparison per Run */}
+                    <div className="space-y-4 max-h-60 overflow-y-auto pr-1">
+                      {reoptResult.optionA?.runs?.map((runA: Run, runIdx: number) => {
+                        const runB = reoptResult.optionB?.runs?.[runIdx];
+                        if (!runB) return null;
+
+                        return (
+                          <div key={runA.nama_run || runIdx} className="bg-white rounded-xl border border-slate-200 p-3.5 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-black text-slate-900 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                                {runA.nama_run.toUpperCase()} ({runA.plat_mobil})
+                              </span>
+                              <span className="text-[11px] font-semibold text-slate-500">
+                                {runA.rute_kunjungan.length} Titik ATM
+                              </span>
+                            </div>
+
+                            {/* Stops comparison grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {/* Manual Stops */}
+                              <div className="space-y-1.5">
+                                <div className="text-[10px] font-black uppercase text-slate-400">
+                                  Urutan Manual Planner (Opsi A)
+                                </div>
+                                <div className="space-y-1">
+                                  {runA.rute_kunjungan.map((stopA, idxA) => (
+                                    <div key={stopA.plan_no} className="flex items-center justify-between text-xs p-2 bg-slate-50 rounded-lg border border-slate-100">
+                                      <span className="font-bold text-slate-500 w-5">#{idxA + 1}</span>
+                                      <span className="font-semibold text-slate-800 truncate flex-1 px-2">{stopA.nama_client}</span>
+                                      <span className="text-[10px] text-slate-400 font-mono">{stopA.prediksi_jam_tiba_di_lokasi}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* AI Optimized Stops */}
+                              <div className="space-y-1.5">
+                                <div className="text-[10px] font-black uppercase text-blue-600 flex items-center justify-between">
+                                  <span>Urutan Advantage AI (Opsi B)</span>
+                                  <span className="text-[9px] text-amber-600 lowercase bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                    highlight = urutan berubah
+                                  </span>
+                                </div>
+                                <div className="space-y-1">
+                                  {runB.rute_kunjungan.map((stopB, idxB) => {
+                                    // Find idx of same stop in Manual runA
+                                    const origIdxA = runA.rute_kunjungan.findIndex(s => s.plan_no === stopB.plan_no);
+                                    const isSequenceChanged = origIdxA !== -1 && origIdxA !== idxB;
+
+                                    return (
+                                      <div
+                                        key={stopB.plan_no}
+                                        className={`flex items-center justify-between text-xs p-2 rounded-lg border transition-all ${
+                                          isSequenceChanged
+                                            ? 'bg-amber-50/90 border-amber-300 text-amber-950 font-bold shadow-2xs'
+                                            : 'bg-emerald-50/50 border-emerald-200/80 text-slate-800'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-1.5">
+                                          <span className={`font-black text-xs w-5 ${isSequenceChanged ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                            #{idxB + 1}
+                                          </span>
+                                          {isSequenceChanged && (
+                                            <span className="text-[9px] font-black bg-amber-200/80 text-amber-900 px-1.5 py-0.5 rounded">
+                                              #{origIdxA + 1} ➔ #{idxB + 1}
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <span className="font-semibold truncate flex-1 px-2">{stopB.nama_client}</span>
+
+                                        <span className="text-[10px] font-mono text-slate-600">{stopB.prediksi_jam_tiba_di_lokasi}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* BOTTOM CONTENT: AI REASONING BOX */}
+                  <div className="p-5 bg-blue-50/80 border border-blue-200 text-slate-900 rounded-2xl space-y-2.5 shadow-2xs">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-blue-600 text-white rounded-lg shadow-2xs">
+                          <Sparkles className="w-4 h-4 text-amber-300" />
+                        </div>
+                        <h4 className="text-xs font-black text-blue-950 tracking-tight">
+                          Analisis Decision Support (Advantage AI)
+                        </h4>
+                      </div>
+                      {reoptResult.kesimpulan_singkat && (
+                        <span className="text-[10px] font-extrabold bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full border border-blue-200">
+                          {reoptResult.kesimpulan_singkat}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                      {reoptResult.alasan_optimasi || reoptResult.reasoning}
+                    </p>
+                  </div>
+
+                  {/* FOOTER ACTION BUTTONS */}
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                    <button
+                      onClick={() => {
+                        onSaveRuns(reoptResult.optionA.runs, "Post-Switch Trip (Urutan Manual)");
+                        setShowReoptModal(false);
+                        onClose();
+                      }}
+                      className="px-5 py-2.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer shadow-2xs"
+                    >
+                      Tetap Gunakan Rute Manual (Opsi A)
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        onSaveRuns(reoptResult.optionB.runs, "Post-Switch Trip (Optimasi Advantage AI)");
+                        setShowReoptModal(false);
+                        onClose();
+                      }}
+                      className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-md shadow-blue-600/30 flex items-center gap-2 cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>Terapkan Optimasi AI (Opsi B)</span>
+                    </button>
+                  </div>
                 </>
               ) : null}
 
