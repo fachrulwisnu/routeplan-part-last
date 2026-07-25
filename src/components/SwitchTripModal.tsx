@@ -636,12 +636,12 @@ export const SwitchTripModal: React.FC<SwitchTripModalProps> = ({
                       <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">
                         Analisis Dampak Perubahan Rute
                       </h3>
-                      <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200">
-                        Dual-Engine AI
+                      <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full border border-blue-200">
+                        Smart AI Validator
                       </span>
                     </div>
                     <p className="text-xs text-slate-500">
-                      Evaluasi Before vs After oleh Nemotron Ultra 550B & Llama 3.3
+                      Evaluasi operasional Before vs After oleh AI Decision Support Engine
                     </p>
                   </div>
                 </div>
@@ -662,33 +662,56 @@ export const SwitchTripModal: React.FC<SwitchTripModalProps> = ({
                     Menganalisis Dampak Switch Trip...
                   </div>
                   <div className="text-xs text-slate-500">
-                    Dual-Engine AI (Nemotron-3 Ultra 550B → Llama 3.3) mengevaluasi geofencing & kemacetan
+                    Smart AI Validator mengevaluasi geofencing & potensi kemacetan...
                   </div>
                 </div>
               ) : aiImpactResult ? (
                 <>
-                  {/* AI Recommendation Banner */}
-                  <div className={`p-3.5 rounded-xl border flex items-start gap-3 ${
-                    aiImpactResult.status_rekomendasi?.includes('Tidak')
-                      ? 'bg-rose-50 border-rose-200 text-rose-900'
-                      : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                  }`}>
-                    <div className="shrink-0 mt-0.5">
-                      {aiImpactResult.status_rekomendasi?.includes('Tidak') ? (
-                        <AlertTriangle className="w-5 h-5 text-rose-600" />
-                      ) : (
-                        <Sparkles className="w-5 h-5 text-emerald-600" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="font-black text-xs uppercase tracking-wide flex items-center gap-2">
-                        <span>Status AI: {aiImpactResult.status_rekomendasi}</span>
+                  {/* AI WARNING / RECOMMENDATION ALERT - MODERN ENTERPRISE STYLE */}
+                  {aiImpactResult.status_rekomendasi?.includes('Tidak') ? (
+                    <div className="relative overflow-hidden rounded-xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-5 shadow-sm">
+                      {/* Dekorasi efek cahaya (Glow) di sudut kanan atas agar tidak flat */}
+                      <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-rose-100/60 blur-2xl"></div>
+
+                      <div className="relative flex items-start gap-4">
+                        {/* Icon Container dengan bulatan yang rapi */}
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-rose-100 bg-white text-rose-600 shadow-sm">
+                          <AlertTriangle className="h-5 w-5" />
+                        </div>
+                        
+                        {/* Text Container */}
+                        <div className="flex-1 pt-0.5">
+                          <h4 className="text-sm font-bold tracking-wide text-rose-800 uppercase">
+                            Analisis Kelayakan: {aiImpactResult.status_rekomendasi}
+                          </h4>
+                          <p className="mt-1.5 text-[13px] leading-relaxed text-rose-700/90">
+                            {aiImpactResult.alasan && aiImpactResult.alasan.length > 5 && !aiImpactResult.alasan.includes("Fallback")
+                              ? aiImpactResult.alasan
+                              : <>Sistem tidak mendeteksi adanya modifikasi pada jadwal (<span className="font-semibold italic">Switch Trip</span>). Susunan rute kunjungan, akumulasi jarak, dan estimasi waktu tempuh tetap identik dengan konfigurasi awal.</>}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-xs font-medium mt-1 leading-relaxed">
-                        {aiImpactResult.alasan}
-                      </p>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="relative overflow-hidden rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm">
+                      <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-emerald-100/60 blur-2xl"></div>
+
+                      <div className="relative flex items-start gap-4">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-emerald-100 bg-white text-emerald-600 shadow-sm">
+                          <Sparkles className="h-5 w-5" />
+                        </div>
+                        
+                        <div className="flex-1 pt-0.5">
+                          <h4 className="text-sm font-bold tracking-wide text-emerald-800 uppercase">
+                            Analisis Kelayakan: {aiImpactResult.status_rekomendasi}
+                          </h4>
+                          <p className="mt-1.5 text-[13px] leading-relaxed text-emerald-700/90">
+                            {aiImpactResult.alasan}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Metrics Comparison Table / Grid */}
                   <div className="grid grid-cols-3 gap-3">
